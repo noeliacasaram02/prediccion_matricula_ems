@@ -1,96 +1,163 @@
-# Proyecto Integrador — Ingeniería de Datos II, Reto 3–4
+# Riesgo de disminución relevante de matrícula EMS
 
-El proyecto integra educación media superior de SEP, población municipal de CONAPO y contexto del Censo 2020 de INEGI para estudiar su relación a escala municipal. El dataset analítico para predecir matrícula del siguiente ciclo ya está preparado; Machine Learning sigue pendiente.
+Aplicación desarrollada como parte del Proyecto Integrador de **Ingeniería de Datos II**.
 
-## Organización
+El objetivo es identificar municipios que podrían requerir una revisión más detallada de la evolución de su matrícula de Educación Media Superior (EMS), utilizando información educativa, demográfica y de contexto municipal.
 
-- `data/raw/`: Bronze, fuentes originales y material de referencia.
-- `data/processed/`: Silver, tablas limpias y homologadas por fuente.
-- `data/curated/`: Gold, base municipal integrada para análisis.
-- `database/sql/`: SQLite, esquema y consultas existentes.
-- `notebooks/`: revisión, ETL, SQL, integración y análisis.
-- `outputs/tables/` y `outputs/figures/`: controles, resúmenes y figuras.
-- `docs/`: inventario, arquitectura, reproducibilidad y documentación previa.
+La aplicación funciona como una **herramienta experimental de apoyo para priorizar revisiones**. No determina decisiones educativas ni administrativas y no debe utilizarse de manera automática para asignar, eliminar o modificar plazas docentes.
 
-Bronze, Silver y Gold son clasificaciones conceptuales; se mantienen las rutas existentes.
+## Fuentes de información
 
-## Entorno y ejecución
+El proyecto integra información pública de:
 
-Se utiliza Python con pandas, NumPy, openpyxl, Matplotlib, SciPy e IPython; SQLite forma parte de la biblioteca estándar. Instalar las dependencias con `python -m pip install -r requirements.txt` en un entorno aislado. El lector de notebooks y su kernel deben estar disponibles en el editor elegido; no se ha comprobado aquí un kernel Jupyter. Las versiones registradas corresponden al entorno consultado, no a una reconstrucción del entorno histórico.
+- **SEP**: matrícula, docentes y escuelas de Educación Media Superior.
+- **CONAPO**: población municipal de 15 a 19 años.
+- **INEGI, Censo 2020**: grado promedio de escolaridad, acceso a internet y disponibilidad de computadora en las viviendas.
 
-Abrir el proyecto completo y ejecutar desde su raíz o desde `notebooks/`, según la detección de raíz que ya incluye el código. Usar rutas relativas y conservar CVEGEO como texto para mantener ceros iniciales. El notebook 12 puede anteponer `.exploratorio_deps` si existe: revisar esa carpeta al configurar el entorno, pues tiene prioridad sobre paquetes instalados.
+La unidad de análisis es el municipio.
 
-## Orden actual de notebooks
+## Modelo de Machine Learning
 
-1. `01_revision_fuente_sep.ipynb`
-2. `02_revision_fuente_conapo.ipynb`
-3. `03_revision_fuente_inegi.ipynb`
-4. `04_etl_sep.ipynb`
-5. `05_etl_conapo.ipynb`
-6. `06_etl_inegi.ipynb`
-7. `07_revision_compatibilidad_territorial.ipynb`
-8. `08_creacion_base_sqlite.ipynb`
-9. `09_carga_base_sqlite.ipynb`
-10. `10_consultas_sql.ipynb`
-11. `11_integracion_fuentes.ipynb`
-12. `12_analisis_exploratorio.ipynb`
+Después de comparar distintas formulaciones del problema, el modelo final experimental se construyó para identificar municipios con riesgo de presentar una **disminución relevante de matrícula** en el siguiente ciclo escolar.
 
-La fase de formalización es documental: no requiere volver a ejecutar estos notebooks. Para reconstruir productos en otra copia, seguir el orden anterior y consultar [reproducibilidad](docs/reproducibilidad.md).
+Se utilizó un:
 
-## Política de notebooks
+**Random Forest Classifier**
 
-La formalización del Data Lake no creó notebooks. La continuación queda limitada a estos tres notebooks; 13, 14 y 15 están ejecutados; el 15 es el último notebook técnico nuevo del Reto 3–4. Los notebooks 01–13 se conservaron durante la fase PySpark:
+con 11 variables relacionadas con:
 
-- `13_mongodb_y_datawarehouse.ipynb`: conexión/carga y lectura MongoDB, función arquitectónica, modelo dimensional, carga, Data Warehouse y consultas analíticas.
-- `14_pyspark_integracion.ipynb`: lectura Silver, transformaciones, integración, variables, escritura Gold y comparación con pandas.
-- `15_validacion_y_dataset_ia.ipynb`: validaciones finales, conteos, faltantes, granularidad, consistencia entre capas, dataset IA y reproducibilidad.
+- matrícula actual;
+- cambio de matrícula respecto al ciclo anterior;
+- cambio porcentual anterior;
+- docentes;
+- cambio de docentes;
+- escuelas;
+- cambio de escuelas;
+- población de 15 a 19 años;
+- grado promedio de escolaridad;
+- porcentaje de viviendas con internet;
+- porcentaje de viviendas con computadora.
 
-Metadatos, tablas, SQL, diagramas y documentación se guardan en los formatos que correspondan, sin un notebook por tarea. Antes de un cuarto notebook adicional se debe justificar por qué no cabe con claridad en los tres previstos, qué problema resuelve separarlo y qué ventaja aporta a la reproducibilidad o comprensión; no crearlo automáticamente.
+Para este proyecto, una disminución relevante corresponde a un criterio histórico aproximado de **−5.14 %**. Este valor es una definición analítica del proyecto y no una clasificación oficial de SEP u otra institución.
 
-Consultar [inventario](docs/inventario_datos.csv), [arquitectura](docs/arquitectura_datalake.md) y [reproducibilidad](docs/reproducibilidad.md).
+El modelo utiliza un **umbral de priorización de 20 %**. Cuando la probabilidad estimada es igual o superior a este valor, el municipio se marca como **“Riesgo identificado”**.
 
-## MongoDB y Data Warehouse
+## Resultados de la prueba histórica
 
-Después de 01–12 sigue `notebooks/13_mongodb_y_datawarehouse.ipynb`. Ya se comprobaron sus entradas SQL (13,508), CSV CONAPO (14,850) e INEGI Silver (2,469). Están preparados `database/warehouse/schema_dw.sql` y `database/warehouse/consultas_dw.sql`. La extracción real MongoDB y la carga del DW se completaron con salidas guardadas en el notebook.
+En el periodo reservado para prueba, correspondiente a **2023–2024 → 2024–2025**, el modelo obtuvo:
 
-Instalar PyMongo en el entorno del kernel antes de la conexión y configurar `MONGODB_URI` fuera del notebook, o utilizar la entrada oculta durante su ejecución. No pegar la conexión en celdas. El notebook utiliza la base del proyecto `reto34_educacion` y únicamente su colección `contexto_municipal_2020`.
+- Recall: **75.2 %**
+- Balanced accuracy: **62.8 %**
+- ROC-AUC: **0.668**
+- F2: **0.541**
 
-Ya se incluyen `database/mongodb/contexto_municipal_2020.json`, `database/warehouse/dw_educacion.db` y `outputs/tables/control_datawarehouse.csv`. El DW contiene 2,266 municipios, 6 ciclos y 13,508 hechos. La integridad y la conciliación por ciclo aprobaron. El modo JSON permite reproducir la extracción guardada y deja visible ese origen; la ejecución de entrega utilizó MongoDB. Se registró `pymongo==4.19.0` en requirements.
+El recall indica que el modelo logró identificar aproximadamente tres de cada cuatro municipios que realmente presentaron una disminución relevante en el periodo de prueba.
 
-## Integración PySpark
+Estas métricas corresponden a una prueba histórica y no garantizan el mismo desempeño con información futura.
 
-Después del 13 sigue `notebooks/14_pyspark_integracion.ipynb`, ejecutado con PySpark 4.2.0 y Java Temurin 25.0.4.1 en `local[*]`. Lee SEP y CONAPO Silver y el JSON ya extraído de MongoDB, sin conexiones ni credenciales. Se revisó el ejemplo disponible en `clase/ejemplo_ventas_pyspark_validado.ipynb`.
+## ¿Cómo interpretar la probabilidad?
 
-Productos: `data/curated/base_integrada_pyspark.parquet/` (carpeta nativa con partes), `data/curated/base_integrada_pyspark.csv` y `outputs/tables/control_pyspark.csv`. Conserva 13,508 filas, 2,266 municipios y 6 ciclos; los 78 controles aprobaron. La matrícula coincide con pandas en todos los ciclos; las diferencias decimales máximas son 7.1e-15.
+La probabilidad estimada indica qué tan compatible es un municipio con el grupo de casos que históricamente presentaron una disminución relevante de matrícula.
 
-En Windows la escritura requiere las utilidades nativas Hadoop 3.5.0 locales en `.exploratorio_deps/hadoop-3.5.0/bin/`; el notebook configura solo su proceso. La procedencia y huellas están en reproducibilidad. No se modificaron Java, JAVA_HOME ni variables persistentes. La copia pandas para CSV ocupó aproximadamente 2.99 MiB; en un volumen grande se conservaría la escritura desde Spark. La validación final y el dataset IA se completaron en el notebook 15; el modelado sigue pendiente.
+Por ejemplo:
 
-## Validación final y dataset IA
+**Una probabilidad de 10.3 % NO significa que la matrícula disminuirá 10.3 %.**
 
-El último notebook técnico es `notebooks/15_validacion_y_dataset_ia.ipynb`. Produce `data/curated/dataset_ia_matricula.csv`, `docs/diccionario_dataset_ia.csv` y `outputs/tables/control_dataset_ia.csv`, sin modificar los notebooks 01–14 ni los productos anteriores.
+Significa que el modelo asigna al municipio una probabilidad estimada de 10.3 % de pertenecer al grupo de riesgo definido en el proyecto.
 
-El dataset contiene 8,996 pares municipio–ciclo, 2,255 municipios, cuatro transiciones y 20 columnas. Usa variables de t para la matrícula observada en t+1; excluye la transición 2019–2020 → 2020–2021. Conserva cuatro filas sin contexto INEGI y excluye tres observaciones sin registro en el ciclo siguiente, sin asignar objetivos cero. Los 80 controles aprobaron.
+Como el umbral de priorización es 20 %:
 
-Las diez variables predictoras son candidatas, todavía sin selección definitiva. Se excluyen nuevo_ingreso por definición pendiente y registros_origen por describir el proceso. Entrenamiento propuesto: primeras tres transiciones (2020–2021 → 2021–2022 hasta 2022–2023 → 2023–2024); prueba propuesta: 2023–2024 → 2024–2025. No se generan particiones ni modelos. El baseline futuro será matrícula t. Antes de modelar se revisarán disponibilidad efectiva de fuentes, faltantes y comparabilidad territorial.
+- probabilidad **≥ 20 %** → Riesgo identificado;
+- probabilidad **< 20 %** → Sin alerta.
 
 ## Aplicación Streamlit
 
-La aplicación usa el modelo experimental ya guardado; no lo entrena ni modifica sus umbrales. Permite consultar municipios y evaluar un registro nuevo como apoyo para priorizar revisiones, sin tomar decisiones sobre plazas docentes.
+La aplicación contiene dos formas de uso.
 
-Con Python 3.12 o un entorno compatible con scikit-learn 1.9.1, instala las dependencias y ejecuta desde la raíz del proyecto:
+### Consultar municipio
+
+Permite seleccionar una entidad y un municipio.
+
+La aplicación muestra:
+
+- matrícula actual;
+- cambio respecto al ciclo anterior;
+- docentes;
+- escuelas;
+- población de 15 a 19 años;
+- evolución histórica reciente de la matrícula;
+- probabilidad estimada por el modelo;
+- señal de riesgo.
+
+La gráfica histórica utiliza los seis ciclos disponibles entre **2019–2020 y 2024–2025**.
+
+### Nueva evaluación
+
+Permite evaluar información nueva con el mismo modelo.
+
+El usuario puede:
+
+- partir de los datos de un municipio existente;
+- utilizar un ejemplo precargado de Ciudad de México;
+- modificar los valores cargados;
+- o capturar completamente los datos de forma manual.
+
+La aplicación calcula automáticamente las variables de cambio entre el ciclo actual y el ciclo inmediatamente anterior y posteriormente genera una nueva estimación.
+
+## Estructura utilizada para la aplicación
+
+```text
+prediccion_matricula_ems/
+│
+├── app.py
+├── requirements.txt
+├── README.md
+│
+├── models/
+│   └── modelo_disminucion_relevante.joblib
+│
+└── data/
+    └── curated/
+        ├── base_inferencia_disminucion_relevante.csv
+        └── historico_matricula_municipal.csv
+```
+
+## Ejecución local
+
+Instalar las dependencias:
 
 ```bash
 python -m pip install -r requirements.txt
-streamlit run app.py
 ```
 
-El requirements.txt de la raíz contiene las dependencias de la aplicación; los entornos de los notebooks siguen documentados en sus secciones anteriores.
+Ejecutar la aplicación:
 
-Para desplegar posteriormente se necesitan estos cuatro archivos, conservando sus carpetas:
+```bash
+python -m streamlit run app.py
+```
 
-- app.py
-- requirements.txt
-- models/modelo_disminucion_relevante.joblib
-- data/curated/base_inferencia_disminucion_relevante.csv
+El modelo fue guardado utilizando:
 
-El README y .gitignore pueden acompañarlos en GitHub. El modelo es experimental y sus probabilidades son estimaciones; las métricas históricas no garantizan el desempeño futuro. Esta etapa no publica ni despliega la aplicación.
+**scikit-learn 1.9.1**
+
+por lo que esta versión se conserva en `requirements.txt`.
+
+## Limitaciones
+
+El modelo debe interpretarse como una herramienta experimental.
+
+Entre sus principales limitaciones:
+
+- puede generar falsas alertas;
+- puede dejar sin detectar algunos municipios con disminución relevante;
+- utiliza información estructural del Censo 2020;
+- las relaciones entre las variables pueden cambiar con el tiempo;
+- requiere reevaluación al incorporar nuevos ciclos escolares;
+- no realiza inferencia causal;
+- no sustituye el análisis de especialistas ni las decisiones de las autoridades educativas.
+
+## Uso académico
+
+Proyecto académico desarrollado para la materia **Ingeniería de Datos II**.
+
+Fuentes principales: **SEP, CONAPO e INEGI**.
